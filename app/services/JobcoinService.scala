@@ -39,7 +39,7 @@ class JobcoinService @Inject() (
     }
   }
 
-  def createNewTransaction(newTransaction: NewTransaction): Future[TransactionPostResponse] = {
+  def createNewTransaction(newTransaction: NewTransaction): Future[NewTransactionResponse] = {
     val fullUrl = s"${config.url}${config.transactionEndpoint}"
 
     def createNewTransactionWithRetries(attemptsLeft: Int): Future[WSResponse] = {
@@ -56,14 +56,13 @@ class JobcoinService @Inject() (
 
     createNewTransactionWithRetries(config.retries).map {
       response =>
-        //These cases look a little crazy but we need to help out the compiler a bit
         response.status match {
           case Status.OK =>
-            val successResponse: TransactionPostResponse = response.json.as[SuccessResponse]
+            val successResponse: NewTransactionResponse = response.json.as[SuccessResponse]
             successResponse
 
           case Status.PAYMENT_REQUIRED =>
-            val errorResponse: TransactionPostResponse = response.json.as[ErrorResponse]
+            val errorResponse: NewTransactionResponse = response.json.as[ErrorResponse]
             errorResponse
 
           case _ => throw new Exception(s"Something went wrong with the call to $fullUrl")

@@ -26,26 +26,26 @@ object NewTransaction {
   implicit lazy val TransactionJson: Format[NewTransaction] = Json.format[NewTransaction]
 }
 
-sealed trait TransactionPostResponse
-case class SuccessResponse(status: String) extends TransactionPostResponse
+sealed trait NewTransactionResponse
+case class SuccessResponse(status: String) extends NewTransactionResponse
 object SuccessResponse {
   implicit lazy val successResponseJson: Format[SuccessResponse] = Json.format[SuccessResponse]
 }
 
-case class ErrorResponse(error: String) extends TransactionPostResponse
+case class ErrorResponse(error: String) extends NewTransactionResponse
 object ErrorResponse {
   implicit lazy val errorResponseJson: Format[ErrorResponse] = Json.format[ErrorResponse]
 }
 
-object TransactionPostResponse {
-  implicit lazy val reads: Reads[TransactionPostResponse] = {
+object NewTransactionResponse {
+  implicit lazy val reads: Reads[NewTransactionResponse] = {
     val success = Json.reads[SuccessResponse]
     val failure = Json.reads[ErrorResponse]
-    __.read[SuccessResponse](success).map(x => x: TransactionPostResponse) |
-      __.read[ErrorResponse](failure).map(x => x: TransactionPostResponse)
+    __.read[SuccessResponse](success).map(x => x: NewTransactionResponse) |
+      __.read[ErrorResponse](failure).map(x => x: NewTransactionResponse)
   }
 
-  implicit lazy val writes: Writes[TransactionPostResponse] = Writes[TransactionPostResponse] {
+  implicit lazy val writes: Writes[NewTransactionResponse] = Writes[NewTransactionResponse] {
     case success: SuccessResponse => Json.writes[SuccessResponse].writes(success)
     case failure: ErrorResponse => Json.writes[ErrorResponse].writes(failure)
   }

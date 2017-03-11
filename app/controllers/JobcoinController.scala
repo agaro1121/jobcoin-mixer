@@ -15,17 +15,6 @@ import scala.concurrent.duration._
 import scala.language.postfixOps
 import AddressActor.{RegisterUserWithdrawalAddresses, RegisteredDepositAddress}
 
-//TODO: spread (20% - fee) between all of the users address
-//TODO: find places of failure take note
-//TODO: address failures, maybe use cats validation?
-//TODO: refactor - specifically renaming for now
-//TODO: tests - validations
-//TODO: jobcoin service unit tests
-//TODO: jobcoin integration-tests (create transaction, get transaction)
-//TODO: test routes?
-//TODO: nice to have - swagger
-//TODO: make all logging akka logging
-
 @Singleton
 class JobcoinController @Inject() (actorSystem: ActorSystem, jobcoinService: JobcoinService) extends Controller with ControllerHelper {
 

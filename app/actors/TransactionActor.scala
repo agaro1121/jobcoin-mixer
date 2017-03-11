@@ -29,9 +29,9 @@ class TransactionActor(jobcoinService: JobcoinService, addressActor: ActorRef) e
 
   private val log: DiagnosticLoggingAdapter = Logging.getLogger(this)
 
-  private var allRelevantTransactions: List[Transaction] = List.empty[Transaction]
-  private var latestTimestamp: Instant = Instant.EPOCH
-  private var depositAddressAndBalance: Map[Address, BigDecimal] = Map.empty
+  var allRelevantTransactions: List[Transaction] = List.empty[Transaction]
+  var latestTimestamp: Instant = Instant.EPOCH
+  var depositAddressAndBalance: Map[Address, BigDecimal] = Map.empty
 
   implicit val timeout: Timeout = 5 seconds
 
