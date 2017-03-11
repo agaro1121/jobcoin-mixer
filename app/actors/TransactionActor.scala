@@ -1,7 +1,7 @@
 package actors
 
 import java.time.Instant
-import actors.AddressActor.{AssignedDepositAddresses, DepositAndWithdrawalAddresses}
+import actors.AddressActor.{RegisteredDepositAddresses, DepositAndWithdrawalAddresses}
 import akka.actor.{Actor, ActorRef, Props}
 import akka.event.{DiagnosticLoggingAdapter, Logging}
 import models.Address
@@ -38,33 +38,33 @@ class TransactionActor(jobcoinService: JobcoinService, addressActor: ActorRef) e
   override def receive: Receive = {
 
     case PollForTransactions =>
-      val depositAddressesPairedToUsers: Future[AssignedDepositAddresses] = (addressActor ? AddressActor.GetDepositAddresses).mapTo[AssignedDepositAddresses]
+      val registeredDepositAddresses: Future[RegisteredDepositAddresses] = (addressActor ? AddressActor.GetRegisteredDepositAddresses).mapTo[RegisteredDepositAddresses]
       val allTransactionsFromJobcoin: Future[List[Transaction]] = jobcoinService.getTransactions
 
-      depositAddressesPairedToUsers.zip(allTransactionsFromJobcoin)
+      registeredDepositAddresses.zip(allTransactionsFromJobcoin)
         .onComplete {
           case Success((depositAddresses, allTransactions)) => {
-            log.info("depositAddresses = " + depositAddresses)
             val relevantTransactions =
               allTransactions
                 .filter(transaction => Instant.parse(transaction.timestamp).isAfter(latestTimestamp))
                 .filter(transaction => depositAddresses.addresses.contains(Address(transaction.toAddress)))
 
             allRelevantTransactions ++= relevantTransactions
-            log.info("All relevant transactions = {}", allRelevantTransactions)
 
             relevantTransactions.foreach { transaction =>
               jobcoinService.createNewTransaction(NewTransaction(transaction.toAddress, "TestHouseAccount", transaction.amount))
             }
 
             latestTimestamp = Try(allTransactions.map(transaction => Instant.parse(transaction.timestamp)).max).getOrElse(latestTimestamp)
-            log.info("latestTimestamp = {}", latestTimestamp)
 
             depositAddressAndBalance = Monoid[Map[Address, BigDecimal]].combine(
               depositAddressAndBalance,
               relevantTransactions.map(transaction => Address(transaction.toAddress) -> BigDecimal(transaction.amount)).toMap
             )
-            log.info("depositAddressAndBalance = {}", depositAddressAndBalance)
+
+            log.info("All relevant transactions = {}", allRelevantTransactions)
+            log.info("Latest Timestamp = {}", latestTimestamp)
+            log.info("Registered Deposit Addresses And Balance = {}\n", depositAddressAndBalance)
           }
 
           case Failure(e) => log.error(e.getMessage); throw e
@@ -76,30 +76,27 @@ class TransactionActor(jobcoinService: JobcoinService, addressActor: ActorRef) e
 
       depositAndWithdrawalAddresses.onComplete {
         case Success(data) =>
-          val depositAddressAndUsersWithdrawalAddresses: Map[Address, List[Address]] = data.addresses
-          log.info("depositAddress and withdrawal addresses = {}", depositAddressAndUsersWithdrawalAddresses.mkString("\n"))
+          val registeredDepositAndWithdrawAddresses: Map[Address, List[Address]] = data.addresses
 
           depositAddressAndBalance.foreach {
             case (depositAddress, balance) =>
               if (balance > 0) {
 
-                val usersWithdrawalAddresses = depositAddressAndUsersWithdrawalAddresses(depositAddress)
+                val usersWithdrawalAddresses = registeredDepositAndWithdrawAddresses(depositAddress)
                 val newBalance = if (balance >= 10) balance * 0.5 else BigDecimal(0)
                 val amountToDoleOut = (balance - newBalance) / usersWithdrawalAddresses.size
                 depositAddressAndBalance = depositAddressAndBalance.updated(depositAddress, newBalance)
 
-                log.info("new balance = {}", newBalance)
-                log.info("amount to be doled out = {}", amountToDoleOut)
-                log.info("updated depositAddressAndBalance = {}", depositAddressAndBalance.mkString)
+                log.info("Deposit Address {} has new balance = {}", depositAddress,newBalance)
+                log.info("Amount to be doled out to each address = {}\n", amountToDoleOut)
 
                 usersWithdrawalAddresses.foreach { address =>
                   val newTransaction = NewTransaction("TestHouseAccount", address.address, amountToDoleOut.toString())
-                  log.info("new transaction = {}", newTransaction)
-                  jobcoinService.createNewTransaction(newTransaction) //TODO: onFailure return funds
+                  jobcoinService.createNewTransaction(newTransaction)
                 }
 
               } else {
-                log.info("DepositAddress({}) has been fulfilled. Removing from pending transactions...", depositAddress)
+                log.info("DepositAddress({}) has been fulfilled. Removing from pending transactions...\n", depositAddress)
                 depositAddressAndBalance = depositAddressAndBalance - depositAddress
               }
 

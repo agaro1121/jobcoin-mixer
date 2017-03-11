@@ -6,11 +6,11 @@ import models.Address
 import scala.collection.immutable.Seq
 
 object AddressActor {
-  case class AssignAddresses(addresses: List[Address])
-  case object GetDepositAddresses
+  case class RegisterUserWithdrawalAddresses(addresses: List[Address])
+  case object GetRegisteredDepositAddresses
   case object GetDepositAndWithdrawalAddresses
-  case class AssignedDepositAddresses(addresses: List[Address])
-  case class AssignedDepositAddress(address: Address)
+  case class RegisteredDepositAddresses(addresses: List[Address])
+  case class RegisteredDepositAddress(address: Address)
   case class DepositAndWithdrawalAddresses(addresses: Map[Address, List[Address]])
 
   def props: Props = Props[AddressActor]
@@ -20,27 +20,27 @@ class AddressActor extends Actor {
 
   import AddressActor._
 
-  var unusedAddresses: Seq[Address] = List.fill(1000)(Address(java.util.UUID.randomUUID.toString))
-  var pairedAddresses: Map[Address, List[Address]] = Map.empty
+  var unusedDepositAddresses: Seq[Address] = List.fill(1000)(Address(java.util.UUID.randomUUID.toString))
+  var registeredDepositAddresses: Map[Address, List[Address]] = Map.empty
 
   override def receive: Receive = {
 
-    case AssignAddresses(addresses) =>
+    case RegisterUserWithdrawalAddresses(addresses) =>
       val origin = sender()
-      unusedAddresses match {
-        case Nil => throw new Exception("The mixer has no more addresses!") //TODO: should I just get new addresses?
+      unusedDepositAddresses match {
+        case Nil => throw new Exception("The mixer has no more addresses!")
         case nextAddress :: rest =>
-          pairedAddresses = pairedAddresses + (nextAddress -> addresses)
-          unusedAddresses = rest
-          origin ! AssignedDepositAddress(nextAddress)
+          registeredDepositAddresses = registeredDepositAddresses + (nextAddress -> addresses)
+          unusedDepositAddresses = rest
+          origin ! RegisteredDepositAddress(nextAddress)
       }
 
-    case GetDepositAddresses =>
+    case GetRegisteredDepositAddresses =>
       val origin = sender()
-      origin ! AssignedDepositAddresses(pairedAddresses.keys.toList)
+      origin ! RegisteredDepositAddresses(registeredDepositAddresses.keys.toList)
 
     case GetDepositAndWithdrawalAddresses =>
       val origin = sender()
-      origin ! DepositAndWithdrawalAddresses(pairedAddresses)
+      origin ! DepositAndWithdrawalAddresses(registeredDepositAddresses)
   }
 }
